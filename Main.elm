@@ -3,69 +3,110 @@ module App exposing (..)
 import Html exposing (Html, div, text, program, a)
 import Models.Todo exposing (Todo, TodoList)
 import Messages.TodoMsg exposing (Msg)
-import Components.TodoList 
+import Components.TodoList
 import Components.NewTodo
-import List.Extra
+import Utilities.List exposing (maxId)
 
-type alias Model = {
-    editingContent: String, 
-    editingTodoId: Int,
-    todoList: TodoList
-}
 
-initialTodoList : TodoList 
-initialTodoList = 
-    { todos= [{id=1, content="test", completed=False}] }
+type alias Model =
+    { editingContent : String
+    , editingTodoId : Int
+    , todoList : TodoList
+    }
+
 
 initialModel : Model
-initialModel = 
-    { editingContent = "", editingTodoId = -1, todoList = initialTodoList }
+initialModel =
+    { editingContent = "", editingTodoId = -1, todoList = { todos = [] } }
+
+
 
 -- MODEL
+
+
 init : ( Model, Cmd Msg )
 init =
     ( initialModel, Cmd.none )
+
 
 -- VIEW
 
 
 view : Model -> Html Msg
 view model =
-    div [] [
-      Components.TodoList.view model.todoList,
-      Components.NewTodo.view model.editingContent
-    ]
+    div []
+        [ Components.TodoList.view model.todoList
+        , Components.NewTodo.view model.editingContent
+        ]
+
+
+toggleTodo : Int -> Todo -> Todo
+toggleTodo id todo =
+    { todo
+        | completed =
+            if todo.id == id then
+                not (todo.completed)
+            else
+                todo.completed
+    }
+
+
 
 -- UPDATE
 
-type alias RecordWithID a =
-    { a | id : Int }
-
-maxId : List (RecordWithID a) -> Int
-maxId list =
-    list |> List.map (.id) |> List.maximum |> Maybe.withDefault -1
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Messages.TodoMsg.EditContent content-> 
-            ({model | editingContent = content}, Cmd.none)
+        Messages.TodoMsg.EditContent content ->
+            ( { model | editingContent = content }, Cmd.none )
 
         Messages.TodoMsg.AddTodo ->
-            (
-                {
-                    todoList = {todos = {id=(maxId model.todoList.todos) + 1, content=model.editingContent, completed= False} :: model.todoList.todos},
-                    editingContent="",
-                    editingTodoId=-1
-                }, 
-                Cmd.none
-            ) 
+            let
+                todoList =
+                    model.todoList
+            in
+                if (model.editingContent /= "") then
+                    ( { model
+                        | todoList =
+                            { todoList
+                                | todos = todoList.todos ++ [ Models.Todo.makeTodo model.editingContent ((maxId model.todoList.todos) + 1) False ]
+                            }
+                        , editingContent = ""
+                        , editingTodoId = -1
+                      }
+                    , Cmd.none
+                    )
+                else
+                    ( model, Cmd.none )
 
         Messages.TodoMsg.DeleteTodo id ->
-            (model, Cmd.none)
+            let
+                todoList =
+                    model.todoList
+            in
+                ( { model
+                    | todoList =
+                        { todoList
+                            | todos = List.filter (\todo -> not (todo.id == id)) todoList.todos
+                        }
+                  }
+                , Cmd.none
+                )
 
         Messages.TodoMsg.ToggleTodo id ->
-            (model, Cmd.none)
+            let
+                todoList =
+                    model.todoList
+            in
+                ( { model
+                    | todoList =
+                        { todoList
+                            | todos = List.map (toggleTodo id) todoList.todos
+                        }
+                  }
+                , Cmd.none
+                )
 
 
 
@@ -75,6 +116,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.none
+
 
 
 -- MAIN
