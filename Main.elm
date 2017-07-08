@@ -1,31 +1,30 @@
 module App exposing (..)
 
 import Html exposing (Html, div, text, program, a)
-import Html.Events exposing (onClick)
-import Mouse
-import Keyboard
+import Models.Todo exposing (Todo, TodoList)
+import Messages.TodoMsg exposing (Msg)
+import Components.TodoList 
+import Components.NewTodo
+import List.Extra
+
+type alias Model = {
+    editingContent: String, 
+    editingTodoId: Int,
+    todoList: TodoList
+}
+
+initialTodoList : TodoList 
+initialTodoList = 
+    { todos= [{id=1, content="test", completed=False}] }
+
+initialModel : Model
+initialModel = 
+    { editingContent = "", editingTodoId = -1, todoList = initialTodoList }
 
 -- MODEL
-
-
-type alias Model =
-    Int
-
-
 init : ( Model, Cmd Msg )
 init =
-    ( 0, Cmd.none )
-
-
-
--- MESSAGES
-
-
-type Msg
-    = MouseMsg Mouse.Position
-    | KeyMsg Keyboard.KeyCode
-
-
+    ( initialModel, Cmd.none )
 
 -- VIEW
 
@@ -33,22 +32,40 @@ type Msg
 view : Model -> Html Msg
 view model =
     div [] [
-      div [] [text (toString model)]
+      Components.TodoList.view model.todoList,
+      Components.NewTodo.view model.editingContent
     ]
-
-
 
 -- UPDATE
 
+type alias RecordWithID a =
+    { a | id : Int }
+
+maxId : List (RecordWithID a) -> Int
+maxId list =
+    list |> List.map (.id) |> List.maximum |> Maybe.withDefault -1
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MouseMsg position ->
-            ( model + 1, Cmd.none )
+        Messages.TodoMsg.EditContent content-> 
+            ({model | editingContent = content}, Cmd.none)
 
-        KeyMsg code ->
-            ( model + 2, Cmd.none )
+        Messages.TodoMsg.AddTodo ->
+            (
+                {
+                    todoList = {todos = {id=(maxId model.todoList.todos) + 1, content=model.editingContent, completed= False} :: model.todoList.todos},
+                    editingContent="",
+                    editingTodoId=-1
+                }, 
+                Cmd.none
+            ) 
+
+        Messages.TodoMsg.DeleteTodo id ->
+            (model, Cmd.none)
+
+        Messages.TodoMsg.ToggleTodo id ->
+            (model, Cmd.none)
 
 
 
@@ -57,11 +74,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Mouse.clicks MouseMsg
-        , Keyboard.downs KeyMsg
-        ]
-
+    Sub.none
 
 
 -- MAIN
